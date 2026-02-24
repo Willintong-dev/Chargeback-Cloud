@@ -49,6 +49,7 @@ pytest tests/ -v
 | GET | `/api/alerts` | Active alerts with severity (HIGH/MEDIUM) |
 | GET | `/api/fraud-patterns` | Repeat offenders by customer_id and BIN patterns within 48h |
 | GET | `/api/recommendations` | Action recommendations per merchant based on dominant reason code |
+| GET | `/api/win-rate` | Dispute win rate correlation by reason code (won/lost/open breakdown) |
 | GET | `/docs` | Swagger UI |
 
 ## Alert Logic
@@ -57,6 +58,12 @@ pytest tests/ -v
 - **WEEKLY_SPIKE**: Last 7 days chargebacks > 2× previous 7 days → severity MEDIUM
 - **HIGH_VALUE_DISPUTE**: Transaction > $500 USD equivalent with chargeback → severity HIGH
   - Conversion: MXN ÷ 17, COP ÷ 4000, CLP ÷ 950
+
+## Key Insights from Test Data
+
+Analysis of the synthetic Oct–Dec 2024 dataset reveals two merchants ("TechZone Express MX" and "Moda Rapida CO") with chargeback ratios above 3%, well beyond the 1.5% processor threshold that triggers penalties. The dominant reason code across both is **13.1 (Merchandise Not Received, 35%)** and **10.4 (Card-Not-Present Fraud, 30%)**, suggesting a dual problem: fulfillment failures in the physical goods segment and weak CNP fraud controls on credit card transactions. Electronics is the highest-risk product category by both volume and dollar exposure.
+
+A clear Black Friday spike (week of Nov 25) shows chargebacks tripling relative to the prior week — driven largely by Digital Goods and Electronics purchases made with credit cards carrying three specific BIN prefixes that appear in 48-hour fraud clusters. Five repeat-offender customer IDs account for chargebacks spread across multiple merchants, indicating a coordinated pattern rather than isolated buyer disputes. Win rate analysis shows merchants recover disputes under code **12.6 (Duplicate Processing)** at a significantly higher rate than **10.4 (CNP Fraud)**, where evidence requirements are stricter. The recommended immediate actions are: enforce 3DS on Electronics/Digital Goods credit card transactions and implement BIN-level velocity checks at authorization time.
 
 ## Test Data Profile
 

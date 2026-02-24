@@ -130,7 +130,7 @@ def _create_chargebacks(db: Session, transactions: list[Transaction], merchants:
     clean_txs = [t for t in approved_txs if t.merchant_id not in problem_merchant_ids]
 
     problem_cb_count = int(len(problem_txs) * 0.08)
-    clean_cb_count = int(len(clean_txs) * 0.020)
+    clean_cb_count = int(len(clean_txs) * 0.025)
 
     problem_sample = random.sample(problem_txs, min(problem_cb_count, len(problem_txs)))
     clean_sample = random.sample(clean_txs, min(clean_cb_count, len(clean_txs)))
