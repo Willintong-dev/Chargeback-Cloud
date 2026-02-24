@@ -2,6 +2,48 @@
 
 Analytic API backend for MonteVerde Market's risk team to identify chargeback patterns, prioritize investigations, and reduce their chargeback ratio.
 
+## Architecture
+
+```
+app/
+├── main.py          # FastAPI app, lifespan handler, router registration
+├── database.py      # SQLite engine, SessionLocal, get_db() dependency
+├── models.py        # SQLAlchemy ORM models with explicit indexes
+├── schemas.py       # Pydantic response models
+├── constants.py     # Shared config: currency rates, thresholds, SQL helpers
+└── routers/
+    ├── merchants.py      # Chargeback ratio ranking
+    ├── reason_codes.py   # Reason code breakdown
+    ├── segments.py       # High-risk segment detection
+    ├── trends.py         # Temporal trend analysis
+    ├── alerts.py         # Alert engine (3 signal types)
+    ├── fraud.py          # Fraud pattern detection (CTE-based)
+    ├── recommendations.py # Action recommendations (window function)
+    └── win_rate.py       # Dispute outcome correlation
+scripts/
+└── seed_data.py     # Generates 5900+ txs with engineered fraud patterns
+tests/
+├── conftest.py      # In-memory SQLite fixtures (StaticPool)
+└── test_api.py      # 19 tests covering all endpoints
+```
+
+All analytical queries use raw SQL via SQLAlchemy `text()`. ORM is only used for schema definition and seed inserts. Currency conversion rates are centralized in `constants.py` and injected into SQL via `currency_to_usd_sql()` to avoid duplication.
+
+## Deployment
+
+**Local:**
+```bash
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+**Production (any WSGI/ASGI host):**
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+```
+
+To swap SQLite for PostgreSQL, replace `SQLALCHEMY_DATABASE_URL` in `database.py` — all queries use ANSI SQL compatible with PostgreSQL except `strftime()` in `trends.py` (replace with `DATE_TRUNC`).
+
 ## Stack
 
 - **Python 3.11+** / **FastAPI** — async HTTP framework with auto Swagger UI
