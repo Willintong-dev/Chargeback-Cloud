@@ -57,3 +57,13 @@ class Recommendation(BaseModel):
     dominant_reason_code: str
     chargeback_count: int
     recommendation: str
+
+
+class WinRateByReasonCode(BaseModel):
+    reason_code: str
+    reason_description: str
+    total: int
+    won: int
+    lost: int
+    open: int
+    win_rate: float
