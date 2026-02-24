@@ -1,19 +1,22 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List
 from app.database import get_db
-from app.constants import HIGH_VALUE_THRESHOLD_USD
+from app.constants import HIGH_VALUE_THRESHOLD_USD, MERCHANT_RATIO_ALERT_THRESHOLD, currency_to_usd_sql
 from app.schemas import Alert
 
 router = APIRouter()
 
 
 @router.get("/alerts", response_model=List[Alert])
-def get_alerts(db: Session = Depends(get_db)):
+def get_alerts(
+    ratio_threshold: float = Query(MERCHANT_RATIO_ALERT_THRESHOLD, description="Chargeback ratio threshold (%) for merchant alerts"),
+    db: Session = Depends(get_db),
+):
     alerts = []
 
-    merchant_rows = db.execute(text("""
+    merchant_rows = db.execute(text(f"""
         SELECT
             m.id,
             m.name,
@@ -24,14 +27,14 @@ def get_alerts(db: Session = Depends(get_db)):
         LEFT JOIN transactions t ON t.merchant_id = m.id
         LEFT JOIN chargebacks c ON c.transaction_id = t.id
         GROUP BY m.id, m.name
-        HAVING ratio > 1.5
-    """)).fetchall()
+        HAVING ratio > :ratio_threshold
+    """), {"ratio_threshold": ratio_threshold}).fetchall()
 
     for row in merchant_rows:
         alerts.append(Alert(
             alert_type="HIGH_CHARGEBACK_RATIO",
             severity="HIGH",
-            description=f"Merchant '{row[1]}' has chargeback ratio of {row[4]:.2f}% (threshold: 1.5%)",
+            description=f"Merchant '{row[1]}' has chargeback ratio of {row[4]:.2f}% (threshold: {ratio_threshold}%)",
             entity_id=row[0],
             entity_name=row[1],
             metric_value=row[4],
@@ -61,31 +64,17 @@ def get_alerts(db: Session = Depends(get_db)):
             metric_value=spike_row[0],
         ))
 
-    high_value_rows = db.execute(text("""
+    usd_expr = currency_to_usd_sql()
+    high_value_rows = db.execute(text(f"""
         SELECT
             t.id AS transaction_id,
             m.id AS merchant_id,
             m.name AS merchant_name,
-            ROUND(
-                t.amount / CASE t.currency
-                    WHEN 'MXN' THEN 17.0
-                    WHEN 'COP' THEN 4000.0
-                    WHEN 'CLP' THEN 950.0
-                    ELSE 1.0
-                END,
-                2
-            ) AS amount_usd
+            ROUND({usd_expr}, 2) AS amount_usd
         FROM chargebacks c
         JOIN transactions t ON t.id = c.transaction_id
         JOIN merchants m ON m.id = t.merchant_id
-        WHERE (
-            t.amount / CASE t.currency
-                WHEN 'MXN' THEN 17.0
-                WHEN 'COP' THEN 4000.0
-                WHEN 'CLP' THEN 950.0
-                ELSE 1.0
-            END
-        ) > :threshold
+        WHERE {usd_expr} > :threshold
     """), {"threshold": HIGH_VALUE_THRESHOLD_USD}).fetchall()
 
     for row in high_value_rows:
