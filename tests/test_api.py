@@ -138,3 +138,54 @@ def test_fraud_patterns_same_bin(client):
     for pattern in bin_patterns:
         assert pattern["chargeback_count"] >= 2
         assert pattern["time_window_hours"] == 48
+
+
+def test_win_rate_all_codes_present(client):
+    response = client.get("/api/win-rate")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) > 0
+    for item in data:
+        assert "reason_code" in item
+        assert "win_rate" in item
+        assert "won" in item
+        assert "lost" in item
+        assert "open" in item
+        assert 0.0 <= item["win_rate"] <= 100.0
+
+
+def test_win_rate_excludes_open_from_denominator(client):
+    response = client.get("/api/win-rate")
+    assert response.status_code == 200
+    for item in response.json():
+        resolved = item["won"] + item["lost"]
+        if resolved > 0:
+            expected_rate = round(item["won"] / resolved * 100, 2)
+            assert abs(item["win_rate"] - expected_rate) < 0.1
+
+
+def test_recommendations_returns_one_per_merchant(client):
+    response = client.get("/api/recommendations")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) > 0
+    merchant_ids = [item["merchant_id"] for item in data]
+    assert len(merchant_ids) == len(set(merchant_ids))
+
+
+def test_recommendations_dominant_code_and_text(client):
+    response = client.get("/api/recommendations")
+    assert response.status_code == 200
+    for item in response.json():
+        assert item["dominant_reason_code"] in {"10.4", "13.1", "13.3", "12.6", "13.2"}
+        assert len(item["recommendation"]) > 10
+
+
+def test_alerts_configurable_threshold(client):
+    response_tight = client.get("/api/alerts?ratio_threshold=0.1")
+    response_loose = client.get("/api/alerts?ratio_threshold=99.0")
+    assert response_tight.status_code == 200
+    assert response_loose.status_code == 200
+    tight_count = sum(1 for a in response_tight.json() if a["alert_type"] == "HIGH_CHARGEBACK_RATIO")
+    loose_count = sum(1 for a in response_loose.json() if a["alert_type"] == "HIGH_CHARGEBACK_RATIO")
+    assert tight_count >= loose_count
