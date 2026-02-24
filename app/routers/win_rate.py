@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List
@@ -9,7 +9,15 @@ router = APIRouter()
 
 
 @router.get("/win-rate", response_model=List[WinRateByReasonCode])
-def get_win_rate(db: Session = Depends(get_db)):
+def get_win_rate(
+    limit: int = Query(50, ge=1, le=500, description="Maximum number of results"),
+    offset: int = Query(0, ge=0, description="Number of results to skip"),
+    db: Session = Depends(get_db),
+):
+    """
+    Return dispute win rate per reason code.
+    Win rate is computed over resolved disputes only (won + lost); open cases are excluded from the denominator.
+    """
     rows = db.execute(text("""
         SELECT
             reason_code,
@@ -29,7 +37,8 @@ def get_win_rate(db: Session = Depends(get_db)):
         FROM chargebacks
         GROUP BY reason_code, reason_description
         ORDER BY win_rate DESC
-    """)).fetchall()
+        LIMIT :limit OFFSET :offset
+    """), {"limit": limit, "offset": offset}).fetchall()
 
     return [
         WinRateByReasonCode(

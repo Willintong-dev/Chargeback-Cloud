@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List
@@ -17,7 +17,15 @@ REASON_CODE_RECOMMENDATIONS = {
 
 
 @router.get("/recommendations", response_model=List[Recommendation])
-def get_recommendations(db: Session = Depends(get_db)):
+def get_recommendations(
+    limit: int = Query(50, ge=1, le=500, description="Maximum number of results"),
+    offset: int = Query(0, ge=0, description="Number of results to skip"),
+    db: Session = Depends(get_db),
+):
+    """
+    Return one action recommendation per merchant based on their dominant chargeback reason code.
+    Dominant code is determined by a ROW_NUMBER() window function over chargeback count per merchant.
+    """
     rows = db.execute(text("""
         WITH ranked AS (
             SELECT
@@ -38,7 +46,8 @@ def get_recommendations(db: Session = Depends(get_db)):
         FROM ranked
         WHERE rn = 1
         ORDER BY chargeback_count DESC
-    """)).fetchall()
+        LIMIT :limit OFFSET :offset
+    """), {"limit": limit, "offset": offset}).fetchall()
 
     return [
         Recommendation(

@@ -11,12 +11,18 @@ router = APIRouter()
 
 @router.get("/alerts", response_model=List[Alert])
 def get_alerts(
-    ratio_threshold: float = Query(MERCHANT_RATIO_ALERT_THRESHOLD, description="Chargeback ratio threshold (%) for merchant alerts"),
+    ratio_threshold: float = Query(MERCHANT_RATIO_ALERT_THRESHOLD, ge=0.0, le=100.0, description="Chargeback ratio threshold (%) for merchant alerts"),
     db: Session = Depends(get_db),
 ):
+    """
+    Return active alerts across three signal types:
+    - **HIGH_CHARGEBACK_RATIO**: merchant CB ratio exceeds `ratio_threshold` (default 1.5%).
+    - **WEEKLY_SPIKE**: last-7-day CB count is more than 2× the prior 7 days.
+    - **HIGH_VALUE_DISPUTE**: chargeback on a transaction worth more than $500 USD equivalent.
+    """
     alerts = []
 
-    merchant_rows = db.execute(text(f"""
+    merchant_rows = db.execute(text("""
         SELECT
             m.id,
             m.name,

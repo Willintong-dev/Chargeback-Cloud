@@ -10,9 +10,15 @@ router = APIRouter()
 
 @router.get("/trends", response_model=List[TrendPoint])
 def get_trends(
-    granularity: str = Query("daily", description="daily or weekly"),
+    granularity: str = Query("daily", description="Time bucket: daily or weekly"),
+    limit: int = Query(90, ge=1, le=366, description="Maximum number of periods to return"),
+    offset: int = Query(0, ge=0, description="Number of periods to skip"),
     db: Session = Depends(get_db),
 ):
+    """
+    Return chargeback volume bucketed by day or week.
+    Use `granularity=weekly` to surface the Black Friday spike pattern.
+    """
     if granularity not in ("daily", "weekly"):
         raise HTTPException(status_code=400, detail="granularity must be 'daily' or 'weekly'")
 
@@ -25,7 +31,8 @@ def get_trends(
             FROM chargebacks
             GROUP BY DATE(chargeback_date)
             ORDER BY period ASC
-        """))
+            LIMIT :limit OFFSET :offset
+        """), {"limit": limit, "offset": offset})
     else:
         result = db.execute(text("""
             SELECT
@@ -35,7 +42,8 @@ def get_trends(
             FROM chargebacks
             GROUP BY strftime('%Y-W%W', chargeback_date)
             ORDER BY period ASC
-        """))
+            LIMIT :limit OFFSET :offset
+        """), {"limit": limit, "offset": offset})
 
     rows = result.fetchall()
     return [
