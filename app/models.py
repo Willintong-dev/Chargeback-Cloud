@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Float, DateTime, ForeignKey
+from sqlalchemy import Column, String, Float, DateTime, ForeignKey, Index
 from app.database import Base
 
 
@@ -25,6 +25,13 @@ class Transaction(Base):
     status = Column(String, nullable=False)
     card_bin = Column(String(6), nullable=False)
 
+    __table_args__ = (
+        Index("ix_transactions_merchant_id", "merchant_id"),
+        Index("ix_transactions_customer_id", "customer_id"),
+        Index("ix_transactions_card_bin", "card_bin"),
+        Index("ix_transactions_timestamp", "timestamp"),
+    )
+
 
 class Chargeback(Base):
     __tablename__ = "chargebacks"
@@ -36,3 +43,10 @@ class Chargeback(Base):
     reason_description = Column(String, nullable=False)
     status = Column(String, nullable=False)
     amount = Column(Float, nullable=False)
+
+    __table_args__ = (
+        Index("ix_chargebacks_transaction_id", "transaction_id"),
+        Index("ix_chargebacks_chargeback_date", "chargeback_date"),
+        Index("ix_chargebacks_reason_code", "reason_code"),
+        Index("ix_chargebacks_status", "status"),
+    )
