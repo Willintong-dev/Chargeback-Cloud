@@ -3,12 +3,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List
 from app.database import get_db
+from app.constants import HIGH_VALUE_THRESHOLD_USD
 from app.schemas import Alert
 
 router = APIRouter()
-
-CURRENCY_TO_USD = {"MXN": 17.0, "COP": 4000.0, "CLP": 950.0}
-HIGH_VALUE_THRESHOLD_USD = 500.0
 
 
 @router.get("/alerts", response_model=List[Alert])
@@ -65,28 +63,39 @@ def get_alerts(db: Session = Depends(get_db)):
 
     high_value_rows = db.execute(text("""
         SELECT
-            c.id,
-            t.amount,
-            t.currency,
             t.id AS transaction_id,
+            m.id AS merchant_id,
             m.name AS merchant_name,
-            m.id AS merchant_id
+            ROUND(
+                t.amount / CASE t.currency
+                    WHEN 'MXN' THEN 17.0
+                    WHEN 'COP' THEN 4000.0
+                    WHEN 'CLP' THEN 950.0
+                    ELSE 1.0
+                END,
+                2
+            ) AS amount_usd
         FROM chargebacks c
         JOIN transactions t ON t.id = c.transaction_id
         JOIN merchants m ON m.id = t.merchant_id
-    """)).fetchall()
+        WHERE (
+            t.amount / CASE t.currency
+                WHEN 'MXN' THEN 17.0
+                WHEN 'COP' THEN 4000.0
+                WHEN 'CLP' THEN 950.0
+                ELSE 1.0
+            END
+        ) > :threshold
+    """), {"threshold": HIGH_VALUE_THRESHOLD_USD}).fetchall()
 
     for row in high_value_rows:
-        divisor = CURRENCY_TO_USD.get(row[2], 1.0)
-        amount_usd = row[1] / divisor
-        if amount_usd > HIGH_VALUE_THRESHOLD_USD:
-            alerts.append(Alert(
-                alert_type="HIGH_VALUE_DISPUTE",
-                severity="HIGH",
-                description=f"High-value chargeback ${amount_usd:.2f} USD on transaction {row[3]} at '{row[4]}'",
-                entity_id=row[5],
-                entity_name=row[4],
-                metric_value=round(amount_usd, 2),
-            ))
+        alerts.append(Alert(
+            alert_type="HIGH_VALUE_DISPUTE",
+            severity="HIGH",
+            description=f"High-value chargeback ${row[3]:.2f} USD on transaction {row[0]} at '{row[2]}'",
+            entity_id=row[1],
+            entity_name=row[2],
+            metric_value=row[3],
+        ))
 
     return alerts
