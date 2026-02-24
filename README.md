@@ -83,7 +83,7 @@ pytest tests/ -v
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/seed` | Load test data (12 merchants, 5000+ txs, 200+ chargebacks) |
+| POST | `/api/seed` | Load test data (12 merchants, 5900+ txs, 247+ chargebacks) |
 | GET | `/api/merchants/chargeback-ratio` | Merchants ranked by chargeback ratio |
 | GET | `/api/reason-codes` | Breakdown by reason code (count + total amount) |
 | GET | `/api/segments/high-risk` | Segments with ratio > threshold (`?dimension=country\|category\|payment_method&threshold=1.5`) |
@@ -110,7 +110,7 @@ A clear Black Friday spike (week of Nov 25) shows chargebacks tripling relative 
 ## Test Data Profile
 
 - 12 merchants (2 problematic with ratio >1.5%)
-- 5,000+ transactions spanning Oct–Dec 2024
+- 5,900+ transactions spanning Oct–Dec 2024
 - ~4% global chargeback ratio
 - Black Friday spike (Nov 25): 3× normal chargeback volume
 - 5 repeat offender customer IDs with 3+ chargebacks across merchants
