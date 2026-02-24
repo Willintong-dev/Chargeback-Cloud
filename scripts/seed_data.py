@@ -89,7 +89,7 @@ def _create_transactions(db: Session, merchants: list[Merchant]) -> list[Transac
     problem_merchant_ids = {merchants[0].id, merchants[1].id}
 
     for merchant in merchants:
-        count = 600 if merchant.id in problem_merchant_ids else 380
+        count = 700 if merchant.id in problem_merchant_ids else 450
         for _ in range(count):
             country = merchant.country
             currency = CURRENCIES[country]
