@@ -203,7 +203,8 @@ def _seed_test_data(db):
         amount=50000.0,
     ))
 
-    spike_base = datetime.utcnow() - timedelta(days=3)
+    today = datetime.now().replace(hour=12, minute=0, second=0, microsecond=0)
+    spike_base = today - timedelta(days=3)
     spike_txs = []
     for i in range(20):
         tx_id = f"tx-spike-{i}"
@@ -230,7 +231,7 @@ def _seed_test_data(db):
             amount=200.0,
         ))
 
-    prev_base = datetime.utcnow() - timedelta(days=10)
+    prev_base = today - timedelta(days=10)
     prev_txs = []
     for i in range(3):
         tx_id = f"tx-prev-{i}"
